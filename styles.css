@@ -69,28 +69,26 @@ button.active { background: #2563eb; border-color: #60a5fa; }
 .model-status { top: 14px; }
 .model-status.error { color: #fca5a5; }
 
-.joint-panel {
+.joint-handles {
   position: absolute;
-  top: 42px;
-  right: 20px;
-  width: min(242px, calc(100% - 40px));
-  padding: 14px;
+  z-index: 2;
+  width: 116px;
+  padding: 8px;
   border: 1px solid #4b5563;
-  border-radius: 8px;
+  border-radius: 7px;
   background: rgb(31 41 55 / 94%);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+  box-shadow: 0 5px 18px rgb(0 0 0 / 24%);
+  user-select: none;
 }
 
-.joint-panel h2 { margin: 0 0 14px; font-size: .95rem; }
-.joint-control { margin: 0 0 16px; }
-.joint-control label { display: block; margin-bottom: 7px; font-size: .86rem; }
-.joint-control input { width: 100%; accent-color: #60a5fa; }
-.slider-labels { display: flex; justify-content: space-between; color: #cbd5e1; font-size: .72rem; }
-.joint-panel button { width: 100%; }
+.joint-handles p { margin: 0 0 6px; color: #cbd5e1; font-size: .72rem; }
+.direct-handle { width: 100%; margin-top: 5px; font-size: .78rem; cursor: grab; touch-action: none; }
+.direct-handle.dragging { cursor: grabbing; background: #2563eb; border-color: #60a5fa; }
+.right-arm-reset { position: absolute; right: 20px; bottom: 14px; z-index: 2; font-size: .78rem; }
 
 @media (max-width: 700px) {
   .toolbar { align-items: flex-start; flex-direction: column; gap: 10px; padding: 14px 16px; }
   .reset-button { margin-left: 0; }
   .model-status { right: 16px; }
-  .joint-panel { right: 16px; width: min(242px, calc(100% - 32px)); }
+  .right-arm-reset { right: 16px; }
 }
