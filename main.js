@@ -1,12 +1,16 @@
 // Keep all Three.js imports on the same fixed CDN version (see index.html import map).
 import * as THREE from 'three';
-import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/controls/OrbitControls.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { VRMLoaderPlugin } from '@pixiv/three-vrm';
 
 const canvas = document.querySelector('#scene-canvas');
 const viewport = document.querySelector('.viewport');
+const modelStatus = document.querySelector('#model-status');
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x1a2230);
+const clock = new THREE.Clock();
 
 const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -52,59 +56,49 @@ ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
 scene.add(ground);
 
-// Temporary mannequin: each limb has explicit endpoints, making a future
-// VRM skeleton adapter or joint manipulation layer easy to introduce here.
-const mannequin = new THREE.Group();
-mannequin.name = 'temporary-mannequin';
-scene.add(mannequin);
+// The VRM stays local to this repository so GitHub Pages never depends on an
+// external model host. Later pose controls can use activeVrm.humanoid bones.
+let activeVrm = null;
+const vrmLoader = new GLTFLoader();
+vrmLoader.register((parser) => new VRMLoaderPlugin(parser));
 
-const skin = new THREE.MeshStandardMaterial({ color: 0x9eb5ca, roughness: 0.72, metalness: 0.02 });
-const jointMaterial = new THREE.MeshStandardMaterial({ color: 0x6d88a2, roughness: 0.66 });
-
-function addJoint(position, radius = 0.18) {
-  const joint = new THREE.Mesh(new THREE.SphereGeometry(radius, 20, 16), jointMaterial);
-  joint.position.copy(position);
-  joint.castShadow = true;
-  mannequin.add(joint);
+function setModelStatus(message, hasError = false) {
+  modelStatus.textContent = message;
+  modelStatus.classList.toggle('error', hasError);
 }
 
-function addLimb(start, end, radius = 0.16) {
-  const direction = new THREE.Vector3().subVectors(end, start);
-  const center = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
-  const limb = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, direction.length(), 16), skin);
-  limb.position.copy(center);
-  limb.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize());
-  limb.castShadow = true;
-  mannequin.add(limb);
-}
+vrmLoader.load(
+  './assets/models/Seed-san.vrm',
+  (gltf) => {
+    activeVrm = gltf.userData.vrm;
+    if (!activeVrm) {
+      throw new Error('The loaded file does not contain VRM data.');
+    }
 
-function buildTemporaryMannequin() {
-  // Coordinate data is deliberately isolated from rendering for later pose controls.
-  const points = {
-    pelvis: new THREE.Vector3(0, 2.7, 0), chest: new THREE.Vector3(0, 4.25, 0), neck: new THREE.Vector3(0, 5.05, 0),
-    leftShoulder: new THREE.Vector3(-0.72, 4.7, 0), leftElbow: new THREE.Vector3(-1.25, 3.82, 0), leftWrist: new THREE.Vector3(-1.45, 2.95, 0),
-    rightShoulder: new THREE.Vector3(0.72, 4.7, 0), rightElbow: new THREE.Vector3(1.25, 3.82, 0), rightWrist: new THREE.Vector3(1.45, 2.95, 0),
-    leftHip: new THREE.Vector3(-0.43, 2.62, 0), leftKnee: new THREE.Vector3(-0.48, 1.32, 0.08), leftAnkle: new THREE.Vector3(-0.48, 0.2, 0),
-    rightHip: new THREE.Vector3(0.43, 2.62, 0), rightKnee: new THREE.Vector3(0.48, 1.32, 0.08), rightAnkle: new THREE.Vector3(0.48, 0.2, 0),
-  };
-  addLimb(points.pelvis, points.chest, 0.47);
-  addLimb(points.chest, points.neck, 0.19);
-  for (const side of ['left', 'right']) {
-    addLimb(points[`${side}Shoulder`], points[`${side}Elbow`]);
-    addLimb(points[`${side}Elbow`], points[`${side}Wrist`], 0.13);
-    addLimb(points[`${side}Hip`], points[`${side}Knee`], 0.22);
-    addLimb(points[`${side}Knee`], points[`${side}Ankle`], 0.18);
-  }
-  Object.values(points).forEach((point) => addJoint(point));
+    activeVrm.scene.scale.setScalar(3.4);
+    activeVrm.scene.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(activeVrm.scene);
+    activeVrm.scene.position.y -= bounds.min.y;
 
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.48, 24, 20), skin);
-  head.scale.set(0.9, 1.15, 0.9);
-  head.position.set(0, 5.62, 0);
-  head.castShadow = true;
-  mannequin.add(head);
-}
-
-buildTemporaryMannequin();
+    activeVrm.scene.traverse((object) => {
+      if (object.isMesh) {
+        object.castShadow = true;
+        object.receiveShadow = true;
+      }
+    });
+    scene.add(activeVrm.scene);
+    setModelStatus('VRM 모델 로드 완료');
+  },
+  (progress) => {
+    if (progress.total > 0) {
+      setModelStatus(`VRM 모델을 불러오는 중… ${Math.round((progress.loaded / progress.total) * 100)}%`);
+    }
+  },
+  (error) => {
+    console.error('Unable to load the local VRM model.', error);
+    setModelStatus('VRM 모델을 불러오지 못했습니다. 모델 파일을 확인하세요.', true);
+  },
+);
 
 function resizeRenderer() {
   const { width, height } = viewport.getBoundingClientRect();
@@ -144,6 +138,7 @@ document.querySelector('.camera-controls').addEventListener('click', (event) => 
 function render(now) {
   requestAnimationFrame(render);
   moveAnimation?.(now);
+  activeVrm?.update(clock.getDelta());
   controls.update();
   renderer.render(scene, camera);
 }
