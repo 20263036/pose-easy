@@ -9,6 +9,7 @@ const modelStatus = document.querySelector('#model-status');
 const rightArmUi = {
   lift: document.querySelector('#shoulder-lift'),
   spread: document.querySelector('#shoulder-spread'),
+  twist: document.querySelector('#shoulder-twist'),
   elbow: document.querySelector('#elbow-bend'),
   reset: document.querySelector('#right-arm-reset'),
 };
@@ -83,6 +84,7 @@ const rightArmRig = {
 };
 
 const localXAxis = new THREE.Vector3(1, 0, 0);
+const localYAxis = new THREE.Vector3(0, 1, 0);
 const localZAxis = new THREE.Vector3(0, 0, 1);
 
 window.poseEasyMannequin = {
@@ -104,21 +106,20 @@ function setModelStatus(message, hasError = false) {
   modelStatus.classList.toggle('error', hasError);
 }
 
-function sliderToDegrees(value, negativeLimit, positiveLimit) {
-  const normalized = Number(value) / 100;
-  return normalized < 0 ? normalized * negativeLimit : normalized * positiveLimit;
-}
-
 function applyRightArmPose() {
   if (!rightArmRig.upperArm || !rightArmRig.lowerArm) return;
 
   // These limits describe artist-friendly motions, not the model's raw axes.
-  const liftAngle = THREE.MathUtils.degToRad(sliderToDegrees(rightArmUi.lift.value, 35, 120));
-  const spreadAngle = THREE.MathUtils.degToRad(-sliderToDegrees(rightArmUi.spread.value, 25, 80));
+  const liftValue = Number(rightArmUi.lift.value) / 100;
+  const liftDegrees = liftValue < 0 ? liftValue * 35 : liftValue * 120;
+  const liftAngle = THREE.MathUtils.degToRad(liftDegrees);
+  const spreadAngle = THREE.MathUtils.degToRad(-Number(rightArmUi.spread.value));
+  const twistAngle = THREE.MathUtils.degToRad(Number(rightArmUi.twist.value));
   const elbowAngle = THREE.MathUtils.degToRad((Number(rightArmUi.elbow.value) / 100) * 135);
 
   const liftRotation = new THREE.Quaternion().setFromAxisAngle(localXAxis, liftAngle);
   const spreadRotation = new THREE.Quaternion().setFromAxisAngle(localZAxis, spreadAngle);
+  const twistRotation = new THREE.Quaternion().setFromAxisAngle(localYAxis, twistAngle);
   const elbowRotation = new THREE.Quaternion().setFromAxisAngle(localXAxis, elbowAngle);
 
   // Multiplying after the bind rotation applies each adjustment in the bone's
@@ -126,7 +127,8 @@ function applyRightArmPose() {
   rightArmRig.upperArm.quaternion
     .copy(rightArmRig.baseUpperArmRotation)
     .multiply(liftRotation)
-    .multiply(spreadRotation);
+    .multiply(spreadRotation)
+    .multiply(twistRotation);
   rightArmRig.lowerArm.quaternion
     .copy(rightArmRig.baseLowerArmRotation)
     .multiply(elbowRotation);
@@ -137,12 +139,13 @@ function resetRightArmPose() {
 
   rightArmUi.lift.value = '0';
   rightArmUi.spread.value = '0';
+  rightArmUi.twist.value = '0';
   rightArmUi.elbow.value = '0';
   rightArmRig.upperArm.quaternion.copy(rightArmRig.baseUpperArmRotation);
   rightArmRig.lowerArm.quaternion.copy(rightArmRig.baseLowerArmRotation);
 }
 
-for (const slider of [rightArmUi.lift, rightArmUi.spread, rightArmUi.elbow]) {
+for (const slider of [rightArmUi.lift, rightArmUi.spread, rightArmUi.twist, rightArmUi.elbow]) {
   slider.addEventListener('input', applyRightArmPose);
 }
 rightArmUi.reset.addEventListener('click', resetRightArmPose);
