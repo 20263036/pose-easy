@@ -23,6 +23,13 @@ controls.dampingFactor = 0.08;
 controls.minDistance = 3.5;
 controls.maxDistance = 18;
 controls.maxPolarAngle = Math.PI - 0.08;
+controls.enablePan = true;
+controls.panSpeed = 1;
+controls.mouseButtons = {
+  LEFT: THREE.MOUSE.ROTATE,
+  MIDDLE: THREE.MOUSE.DOLLY,
+  RIGHT: THREE.MOUSE.PAN,
+};
 
 const target = new THREE.Vector3(0, 3.1, 0);
 const initialView = { position: new THREE.Vector3(7.2, 5.2, 9.2), target: target.clone() };
@@ -53,11 +60,6 @@ const ground = new THREE.Mesh(
 ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
 scene.add(ground);
-
-const raycaster = new THREE.Raycaster();
-const pointer = new THREE.Vector2();
-const focusPlane = new THREE.Plane();
-const cameraDirection = new THREE.Vector3();
 
 // The GLB stays local to this repository so GitHub Pages never depends on an
 // external model host. The rig object is intentionally retained for future pose tools.
@@ -144,69 +146,9 @@ window.addEventListener('resize', resizeRenderer);
 resizeRenderer();
 
 let moveAnimation = null;
-let focusAnimation = null;
-
-function getFocusPoint(event) {
-  const bounds = canvas.getBoundingClientRect();
-  pointer.x = ((event.clientX - bounds.left) / bounds.width) * 2 - 1;
-  pointer.y = -((event.clientY - bounds.top) / bounds.height) * 2 + 1;
-  raycaster.setFromCamera(pointer, camera);
-
-  // Prefer the exact point on the mannequin surface.
-  if (mannequinRig.scene) {
-    const modelHit = raycaster.intersectObject(mannequinRig.scene, true)[0];
-    if (modelHit) return modelHit.point.clone();
-  }
-
-  // On empty space, use the ground when possible. This is useful for feet and
-  // for re-centering around the model without requiring an exact mesh hit.
-  const groundHit = raycaster.intersectObject(ground, false)[0];
-  if (groundHit) return groundHit.point.clone();
-
-  // As a final fallback, intersect the ray with a view-aligned plane through
-  // the active target. This keeps cursor-centred zoom natural in open space.
-  camera.getWorldDirection(cameraDirection);
-  focusPlane.setFromNormalAndCoplanarPoint(cameraDirection, controls.target);
-  return raycaster.ray.intersectPlane(focusPlane, new THREE.Vector3());
-}
-
-function focusTarget(point, animate = false) {
-  if (!point) return;
-  moveAnimation = null;
-
-  if (!animate) {
-    focusAnimation = null;
-    controls.target.copy(point);
-    return;
-  }
-
-  const fromTarget = controls.target.clone();
-  const targetPoint = point.clone();
-  const startedAt = performance.now();
-  const duration = 220;
-  focusAnimation = (now) => {
-    const progress = Math.min((now - startedAt) / duration, 1);
-    const eased = 1 - (1 - progress) ** 3;
-    controls.target.lerpVectors(fromTarget, targetPoint, eased);
-    if (progress === 1) focusAnimation = null;
-  };
-}
-
-// This capture listener runs before OrbitControls' wheel handler. OrbitControls
-// still performs the dolly; changing its target first makes that dolly occur
-// around the point beneath the cursor rather than the previous screen centre.
-canvas.addEventListener('wheel', (event) => {
-  focusTarget(getFocusPoint(event));
-}, { capture: true, passive: true });
-
-canvas.addEventListener('dblclick', (event) => {
-  focusTarget(getFocusPoint(event), true);
-});
-
 function moveCamera(viewName) {
   const view = cameraViews[viewName];
   if (!view) return;
-  focusAnimation = null;
   const fromPosition = camera.position.clone();
   const fromTarget = controls.target.clone();
   const startedAt = performance.now();
@@ -231,7 +173,6 @@ document.querySelector('.camera-controls').addEventListener('click', (event) => 
 function render(now) {
   requestAnimationFrame(render);
   moveAnimation?.(now);
-  focusAnimation?.(now);
   controls.update();
   renderer.render(scene, camera);
 }
