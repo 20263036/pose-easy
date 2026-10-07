@@ -1,16 +1,13 @@
-# Seed-san VRM model
+# Human base mesh with editable 53-bone rig
 
-`Seed-san.vrm` is the VRM 1.0 sample model supplied by the VRM Consortium
-specification repository. It is loaded locally by Pose Easy; the app does not
-request a third-party model URL at runtime.
+`human-base-rigged.glb` is the local Pose Easy mannequin. It is loaded from
+this directory rather than a third-party runtime URL, so it works on GitHub Pages.
 
-- Source: https://github.com/vrm-c/vrm-specification/tree/master/samples/Seed-san
-- Creator: VirtualCast, Inc.
-- License: VRM Public License 1.0
-- SHA-256: `624d0d554bc205bbdc33e22a68a2c3c20edebb3e573011ead8878a65e5329b23`
+- Source: https://www.innerscene.com/tools/library/3d-parts/human-base-mesh-with-editable-53-bone-rig-8e7c8ab1
+- Format: GLB (glTF 2.0), 4.8 MB
+- License: CC0 1.0 Universal (public domain)
+- SHA-256: `7135e03b6259e970458deff3e0458610914d7c35164cae12611101361e4a5749`
+- Rig: one skin with 53 joints
 
-The embedded VRM 1.0 metadata confirms `allowRedistribution: true`,
-`modification: allowModificationRedistribution`, and corporate commercial use.
-It also requires credit notation, so the in-app attribution must remain visible.
-Do not replace this model with another VRM unless its own license explicitly
-allows redistribution.
+The asset page states that its embedded GLB preserves the skeleton and skin
+weights. Retain this file and this notice when redistributing the project.

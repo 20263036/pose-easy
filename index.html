@@ -24,18 +24,16 @@
       <section class="viewport" aria-label="3D 인체 마네킹 뷰포트">
         <canvas id="scene-canvas"></canvas>
         <p class="hint">드래그: 회전 · 휠: 확대/축소</p>
-        <p id="model-status" class="model-status" role="status">VRM 모델을 불러오는 중…</p>
-        <p class="model-credit">모델: Seed-san © VirtualCast, Inc.</p>
+        <p id="model-status" class="model-status" role="status">3D 인체 모델을 불러오는 중…</p>
       </section>
     </main>
 
-    <!-- OrbitControls also imports the "three" module name internally. -->
+    <!-- Three.js example modules import the "three" module name internally. -->
     <script type="importmap">
       {
         "imports": {
           "three": "https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js",
-          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/",
-          "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@2.1.0/lib/three-vrm.module.min.js"
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/"
         }
       }
     </script>

@@ -2,7 +2,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { VRMLoaderPlugin } from '@pixiv/three-vrm';
 
 const canvas = document.querySelector('#scene-canvas');
 const viewport = document.querySelector('.viewport');
@@ -10,7 +9,6 @@ const modelStatus = document.querySelector('#model-status');
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x1a2230);
-const clock = new THREE.Clock();
 
 const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -56,47 +54,77 @@ ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
 scene.add(ground);
 
-// The VRM stays local to this repository so GitHub Pages never depends on an
-// external model host. Later pose controls can use activeVrm.humanoid bones.
-let activeVrm = null;
-const vrmLoader = new GLTFLoader();
-vrmLoader.register((parser) => new VRMLoaderPlugin(parser));
+// The GLB stays local to this repository so GitHub Pages never depends on an
+// external model host. The rig object is intentionally retained for future pose tools.
+const mannequinRig = {
+  scene: null,
+  skeleton: null,
+  bones: new Map(),
+};
+
+window.poseEasyMannequin = {
+  get scene() {
+    return mannequinRig.scene;
+  },
+  get skeleton() {
+    return mannequinRig.skeleton;
+  },
+  getBone(name) {
+    return mannequinRig.bones.get(name) ?? null;
+  },
+};
+
+const modelLoader = new GLTFLoader();
 
 function setModelStatus(message, hasError = false) {
   modelStatus.textContent = message;
   modelStatus.classList.toggle('error', hasError);
 }
 
-vrmLoader.load(
-  './assets/models/Seed-san.vrm',
+modelLoader.load(
+  './assets/models/human-base-rigged.glb',
   (gltf) => {
-    activeVrm = gltf.userData.vrm;
-    if (!activeVrm) {
-      throw new Error('The loaded file does not contain VRM data.');
+    const skinnedMesh = gltf.scene.getObjectByProperty('isSkinnedMesh', true);
+    if (!skinnedMesh?.skeleton) {
+      throw new Error('The loaded GLB does not contain a skinned skeleton.');
     }
 
-    activeVrm.scene.scale.setScalar(3.4);
-    activeVrm.scene.updateMatrixWorld(true);
-    const bounds = new THREE.Box3().setFromObject(activeVrm.scene);
-    activeVrm.scene.position.y -= bounds.min.y;
+    mannequinRig.scene = gltf.scene;
+    mannequinRig.skeleton = skinnedMesh.skeleton;
+    mannequinRig.bones = new Map(mannequinRig.skeleton.bones.map((bone) => [bone.name, bone]));
 
-    activeVrm.scene.traverse((object) => {
+    mannequinRig.scene.scale.setScalar(3.5);
+    mannequinRig.scene.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(mannequinRig.scene);
+    const center = bounds.getCenter(new THREE.Vector3());
+    mannequinRig.scene.position.set(-center.x, -bounds.min.y, -center.z);
+
+    mannequinRig.scene.traverse((object) => {
       if (object.isMesh) {
         object.castShadow = true;
         object.receiveShadow = true;
       }
     });
-    scene.add(activeVrm.scene);
-    setModelStatus('VRM 모델 로드 완료');
+    scene.add(mannequinRig.scene);
+
+    const bones = mannequinRig.skeleton.bones.map((bone) => ({
+      name: bone.name,
+      parent: mannequinRig.skeleton.bones.includes(bone.parent) ? bone.parent.name : '(scene root)',
+    }));
+    console.groupCollapsed(`Pose Easy mannequin rig (${bones.length} bones)`);
+    console.table(bones);
+    console.log('Access a bone with: window.poseEasyMannequin.getBone("upperarm_l")');
+    console.groupEnd();
+    setModelStatus(`인체 모델 로드 완료 · ${bones.length} bones`);
   },
   (progress) => {
     if (progress.total > 0) {
-      setModelStatus(`VRM 모델을 불러오는 중… ${Math.round((progress.loaded / progress.total) * 100)}%`);
+      setModelStatus(`3D 인체 모델을 불러오는 중… ${Math.round((progress.loaded / progress.total) * 100)}%`);
     }
   },
   (error) => {
-    console.error('Unable to load the local VRM model.', error);
-    setModelStatus('VRM 모델을 불러오지 못했습니다. 모델 파일을 확인하세요.', true);
+    console.error('Unable to load the local GLB model.', error);
+    setModelStatus('3D 인체 모델을 불러오지 못했습니다. 모델 파일을 확인하세요.', true);
   },
 );
 
@@ -138,7 +166,6 @@ document.querySelector('.camera-controls').addEventListener('click', (event) => 
 function render(now) {
   requestAnimationFrame(render);
   moveAnimation?.(now);
-  activeVrm?.update(clock.getDelta());
   controls.update();
   renderer.render(scene, camera);
 }
