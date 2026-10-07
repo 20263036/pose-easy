@@ -193,8 +193,8 @@ function updateHandlePosition() {
 
   const x = (overlayPosition.x * 0.5 + 0.5) * viewport.clientWidth;
   const y = (-overlayPosition.y * 0.5 + 0.5) * viewport.clientHeight;
-  handles.style.left = `${THREE.MathUtils.clamp(x + 18, 8, viewport.clientWidth - 124)}px`;
-  handles.style.top = `${THREE.MathUtils.clamp(y - 24, 8, viewport.clientHeight - 128)}px`;
+  handles.style.left = `${x}px`;
+  handles.style.top = `${y}px`;
 }
 
 function beginDirectDrag(event) {

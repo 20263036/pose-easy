@@ -25,14 +25,14 @@
         <canvas id="scene-canvas"></canvas>
         <p class="hint">왼쪽 드래그: 회전 · 휠: 확대/축소 · 오른쪽 드래그: 화면 이동</p>
         <p id="model-status" class="model-status" role="status">3D 인체 모델을 불러오는 중…</p>
-        <div id="shoulder-handles" class="joint-handles" hidden aria-label="어깨 조작">
-          <p>어깨 선택됨</p>
+        <div id="shoulder-handles" class="joint-handle-group" hidden aria-label="어깨 조작">
+          <span class="joint-marker" aria-hidden="true"></span>
           <button type="button" class="direct-handle" data-motion="lift">↕ 올리기</button>
           <button type="button" class="direct-handle" data-motion="spread">↔ 벌리기</button>
-          <button type="button" class="direct-handle" data-motion="twist">⟳ 돌리기</button>
+          <button type="button" class="direct-handle" data-motion="twist">↻ 돌리기</button>
         </div>
-        <div id="elbow-handles" class="joint-handles" hidden aria-label="팔꿈치 조작">
-          <p>팔꿈치 선택됨</p>
+        <div id="elbow-handles" class="joint-handle-group" hidden aria-label="팔꿈치 조작">
+          <span class="joint-marker" aria-hidden="true"></span>
           <button type="button" class="direct-handle" data-motion="elbow">↕ 굽히기</button>
         </div>
         <button id="right-arm-reset" class="right-arm-reset" type="button" disabled>오른팔 초기화</button>

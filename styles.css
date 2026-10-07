@@ -69,20 +69,46 @@ button.active { background: #2563eb; border-color: #60a5fa; }
 .model-status { top: 14px; }
 .model-status.error { color: #fca5a5; }
 
-.joint-handles {
+.joint-handle-group {
   position: absolute;
   z-index: 2;
-  width: 116px;
-  padding: 8px;
-  border: 1px solid #4b5563;
-  border-radius: 7px;
-  background: rgb(31 41 55 / 94%);
-  box-shadow: 0 5px 18px rgb(0 0 0 / 24%);
+  width: 0;
+  height: 0;
+  pointer-events: none;
   user-select: none;
 }
 
-.joint-handles p { margin: 0 0 6px; color: #cbd5e1; font-size: .72rem; }
-.direct-handle { width: 100%; margin-top: 5px; font-size: .78rem; cursor: grab; touch-action: none; }
+.joint-marker {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  left: -5px;
+  top: -5px;
+  border: 2px solid #93c5fd;
+  border-radius: 50%;
+  background: #1d4ed8;
+  box-shadow: 0 0 0 3px rgb(15 23 42 / 65%);
+}
+
+.direct-handle {
+  position: absolute;
+  width: max-content;
+  margin: 0;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: rgb(31 41 55 / 96%);
+  box-shadow: 0 3px 10px rgb(0 0 0 / 26%);
+  font-size: .72rem;
+  white-space: nowrap;
+  cursor: grab;
+  touch-action: none;
+  pointer-events: auto;
+}
+
+#shoulder-handles [data-motion="lift"] { left: 0; top: -38px; transform: translate(-50%, -100%); }
+#shoulder-handles [data-motion="spread"] { left: 38px; top: 0; transform: translate(0, -50%); }
+#shoulder-handles [data-motion="twist"] { left: -38px; top: 0; transform: translate(-100%, -50%); }
+#elbow-handles [data-motion="elbow"] { left: 0; top: -30px; transform: translate(-50%, -100%); }
 .direct-handle.dragging { cursor: grabbing; background: #2563eb; border-color: #60a5fa; }
 .right-arm-reset { position: absolute; right: 20px; bottom: 14px; z-index: 2; font-size: .78rem; }
 
