@@ -87,6 +87,7 @@ const localZAxis = new THREE.Vector3(0, 0, 1);
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 const overlayPosition = new THREE.Vector3();
+const proxyWorldPosition = new THREE.Vector3();
 const jointProxies = [];
 const rightArmPose = { lift: 0, spread: 0, twist: 0, elbow: 0 };
 let selectedJoint = null;
@@ -147,16 +148,42 @@ function resetRightArmPose() {
   rightArmRig.lowerArm.quaternion.copy(rightArmRig.baseLowerArmRotation);
 }
 
-function createJointProxy(bone, joint, geometry, position) {
+function createJointProxy(bone, joint, geometry, { position, rotation, color }) {
   const proxy = new THREE.Mesh(
     geometry,
-    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
+    // Intentionally visible while this interaction is being debugged. It is
+    // rendered over the mannequin so the real click area is unambiguous.
+    new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.48,
+      depthTest: false,
+      depthWrite: false,
+    }),
   );
   proxy.name = `${joint}-click-proxy`;
   proxy.userData.joint = joint;
   proxy.position.copy(position);
+  proxy.quaternion.copy(rotation);
+  proxy.renderOrder = 2;
   bone.add(proxy);
   jointProxies.push(proxy);
+  return proxy;
+}
+
+function reportJointProxies() {
+  console.table(jointProxies.map((proxy) => {
+    proxy.getWorldPosition(proxyWorldPosition);
+    return {
+      proxy: proxy.name,
+      joint: proxy.userData.joint,
+      parent: proxy.parent?.name ?? '(missing)',
+      sceneAttached: Boolean(mannequinRig.scene?.getObjectById(proxy.id)),
+      raycastTarget: jointProxies.includes(proxy),
+      worldPosition: proxyWorldPosition.toArray().map((value) => Number(value.toFixed(3))).join(', '),
+      visible: proxy.visible,
+    };
+  }));
 }
 
 function setSelectedJoint(joint) {
@@ -175,8 +202,19 @@ function selectJointAtPointer(event) {
   setPointerFromEvent(event);
   mannequinRig.scene?.updateMatrixWorld(true);
   raycaster.setFromCamera(pointer, camera);
-  const hit = raycaster.intersectObjects(jointProxies, false)[0];
-  setSelectedJoint(hit?.object.userData.joint ?? null);
+  const hits = raycaster.intersectObjects(jointProxies, false);
+  const hit = hits[0];
+  console.debug('Pose Easy: proxy raycast', {
+    pointer: pointer.toArray(),
+    targets: jointProxies.map((proxy) => proxy.name),
+    hits: hits.map(({ object, distance }) => ({ name: object.name, joint: object.userData.joint, distance })),
+  });
+
+  const joint = hit?.object.userData.joint ?? null;
+  setSelectedJoint(joint);
+  if (joint === 'shoulder') console.log('Pose Easy: shoulder selected');
+  else if (joint === 'elbow') console.log('Pose Easy: elbow selected');
+  else console.log('Pose Easy: selection cleared');
 }
 
 function updateHandlePosition() {
@@ -245,14 +283,20 @@ for (const handle of document.querySelectorAll('.direct-handle')) {
 
 let canvasPointerDown = null;
 canvas.addEventListener('pointerdown', (event) => {
-  if (event.button === 0) canvasPointerDown = { x: event.clientX, y: event.clientY };
-});
+  if (event.button !== 0 || !event.isPrimary) return;
+  canvasPointerDown = { x: event.clientX, y: event.clientY, pointerId: event.pointerId };
+  console.debug('Pose Easy: canvas pointerdown', { x: event.clientX, y: event.clientY, pointerId: event.pointerId });
+}, true);
 canvas.addEventListener('pointerup', (event) => {
-  if (event.button !== 0 || !canvasPointerDown) return;
+  if (event.button !== 0 || !canvasPointerDown || event.pointerId !== canvasPointerDown.pointerId) return;
   const moved = Math.hypot(event.clientX - canvasPointerDown.x, event.clientY - canvasPointerDown.y);
   canvasPointerDown = null;
-  if (moved < 6) selectJointAtPointer(event);
-});
+  if (moved < 6) {
+    selectJointAtPointer(event);
+  } else {
+    console.debug('Pose Easy: camera drag ignored for selection', { moved });
+  }
+}, true);
 canvas.addEventListener('pointercancel', () => {
   canvasPointerDown = null;
 });
@@ -279,17 +323,45 @@ modelLoader.load(
     rightArmRig.baseUpperArmRotation = rightArmRig.upperArm.quaternion.clone();
     rightArmRig.baseLowerArmRotation = rightArmRig.lowerArm.quaternion.clone();
 
+    // Work from the actual bone endpoints instead of assuming an arbitrary
+    // offset. The proxy remains a child of upperarm_r, so it follows every
+    // existing semantic shoulder rotation without changing that logic.
+    rightArmRig.upperArm.updateWorldMatrix(true, true);
+    rightArmRig.lowerArm.updateWorldMatrix(true, true);
+    const elbowInUpperArmSpace = rightArmRig.upperArm.worldToLocal(
+      rightArmRig.lowerArm.getWorldPosition(new THREE.Vector3()),
+    );
+    const upperArmLength = elbowInUpperArmSpace.length();
+    if (upperArmLength === 0) throw new Error('The right upper-arm bone has no measurable length.');
+
+    const upperArmDirection = elbowInUpperArmSpace.clone().normalize();
+    const shoulderProxyRadius = Math.max(0.09, upperArmLength * 0.38);
+    const shoulderProxyTotalLength = upperArmLength * 1.2;
+    const shoulderProxyCylinderLength = Math.max(
+      0.06,
+      shoulderProxyTotalLength - shoulderProxyRadius * 2,
+    );
+    const shoulderProxyRotation = new THREE.Quaternion().setFromUnitVectors(localYAxis, upperArmDirection);
+
     createJointProxy(
       rightArmRig.upperArm,
       'shoulder',
-      new THREE.CapsuleGeometry(0.08, 0.12, 4, 10),
-      new THREE.Vector3(0, 0.1, 0),
+      new THREE.CapsuleGeometry(shoulderProxyRadius, shoulderProxyCylinderLength, 6, 12),
+      {
+        position: elbowInUpperArmSpace.clone().multiplyScalar(0.5),
+        rotation: shoulderProxyRotation,
+        color: 0x22d3ee,
+      },
     );
     createJointProxy(
       rightArmRig.lowerArm,
       'elbow',
-      new THREE.SphereGeometry(0.11, 16, 12),
-      new THREE.Vector3(),
+      new THREE.SphereGeometry(Math.max(0.12, upperArmLength * 0.52), 20, 16),
+      {
+        position: new THREE.Vector3(),
+        rotation: new THREE.Quaternion(),
+        color: 0xf59e0b,
+      },
     );
 
     mannequinRig.scene.scale.setScalar(3.5);
@@ -305,6 +377,12 @@ modelLoader.load(
       }
     });
     scene.add(mannequinRig.scene);
+    mannequinRig.scene.updateMatrixWorld(true);
+    console.groupCollapsed('Pose Easy: right-arm click proxies');
+    console.log('upperarm_r → lowerarm_r local endpoint', elbowInUpperArmSpace.toArray());
+    console.log('upperarm_r proxy length', upperArmLength);
+    reportJointProxies();
+    console.groupEnd();
 
     const bones = mannequinRig.skeleton.bones.map((bone) => ({
       name: bone.name,
