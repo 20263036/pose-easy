@@ -69,8 +69,28 @@ button.active { background: #2563eb; border-color: #60a5fa; }
 .model-status { top: 14px; }
 .model-status.error { color: #fca5a5; }
 
+.joint-panel {
+  position: absolute;
+  top: 42px;
+  right: 20px;
+  width: min(242px, calc(100% - 40px));
+  padding: 14px;
+  border: 1px solid #4b5563;
+  border-radius: 8px;
+  background: rgb(31 41 55 / 94%);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+}
+
+.joint-panel h2 { margin: 0 0 14px; font-size: .95rem; }
+.joint-control { margin: 0 0 16px; }
+.joint-control label { display: block; margin-bottom: 7px; font-size: .86rem; }
+.joint-control input { width: 100%; accent-color: #60a5fa; }
+.slider-labels { display: flex; justify-content: space-between; color: #cbd5e1; font-size: .72rem; }
+.joint-panel button { width: 100%; }
+
 @media (max-width: 700px) {
   .toolbar { align-items: flex-start; flex-direction: column; gap: 10px; padding: 14px 16px; }
   .reset-button { margin-left: 0; }
   .model-status { right: 16px; }
+  .joint-panel { right: 16px; width: min(242px, calc(100% - 32px)); }
 }

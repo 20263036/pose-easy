@@ -6,6 +6,12 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 const canvas = document.querySelector('#scene-canvas');
 const viewport = document.querySelector('.viewport');
 const modelStatus = document.querySelector('#model-status');
+const rightArmUi = {
+  lift: document.querySelector('#shoulder-lift'),
+  spread: document.querySelector('#shoulder-spread'),
+  elbow: document.querySelector('#elbow-bend'),
+  reset: document.querySelector('#right-arm-reset'),
+};
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x1a2230);
@@ -69,6 +75,16 @@ const mannequinRig = {
   bones: new Map(),
 };
 
+const rightArmRig = {
+  upperArm: null,
+  lowerArm: null,
+  baseUpperArmRotation: null,
+  baseLowerArmRotation: null,
+};
+
+const localXAxis = new THREE.Vector3(1, 0, 0);
+const localZAxis = new THREE.Vector3(0, 0, 1);
+
 window.poseEasyMannequin = {
   get scene() {
     return mannequinRig.scene;
@@ -88,6 +104,49 @@ function setModelStatus(message, hasError = false) {
   modelStatus.classList.toggle('error', hasError);
 }
 
+function sliderToDegrees(value, negativeLimit, positiveLimit) {
+  const normalized = Number(value) / 100;
+  return normalized < 0 ? normalized * negativeLimit : normalized * positiveLimit;
+}
+
+function applyRightArmPose() {
+  if (!rightArmRig.upperArm || !rightArmRig.lowerArm) return;
+
+  // These limits describe artist-friendly motions, not the model's raw axes.
+  const liftAngle = THREE.MathUtils.degToRad(sliderToDegrees(rightArmUi.lift.value, 35, 120));
+  const spreadAngle = THREE.MathUtils.degToRad(-sliderToDegrees(rightArmUi.spread.value, 25, 80));
+  const elbowAngle = THREE.MathUtils.degToRad((Number(rightArmUi.elbow.value) / 100) * 135);
+
+  const liftRotation = new THREE.Quaternion().setFromAxisAngle(localXAxis, liftAngle);
+  const spreadRotation = new THREE.Quaternion().setFromAxisAngle(localZAxis, spreadAngle);
+  const elbowRotation = new THREE.Quaternion().setFromAxisAngle(localXAxis, elbowAngle);
+
+  // Multiplying after the bind rotation applies each adjustment in the bone's
+  // own coordinate system and leaves every unrelated bone untouched.
+  rightArmRig.upperArm.quaternion
+    .copy(rightArmRig.baseUpperArmRotation)
+    .multiply(liftRotation)
+    .multiply(spreadRotation);
+  rightArmRig.lowerArm.quaternion
+    .copy(rightArmRig.baseLowerArmRotation)
+    .multiply(elbowRotation);
+}
+
+function resetRightArmPose() {
+  if (!rightArmRig.upperArm || !rightArmRig.lowerArm) return;
+
+  rightArmUi.lift.value = '0';
+  rightArmUi.spread.value = '0';
+  rightArmUi.elbow.value = '0';
+  rightArmRig.upperArm.quaternion.copy(rightArmRig.baseUpperArmRotation);
+  rightArmRig.lowerArm.quaternion.copy(rightArmRig.baseLowerArmRotation);
+}
+
+for (const slider of [rightArmUi.lift, rightArmUi.spread, rightArmUi.elbow]) {
+  slider.addEventListener('input', applyRightArmPose);
+}
+rightArmUi.reset.addEventListener('click', resetRightArmPose);
+
 modelLoader.load(
   './assets/models/human-base-rigged.glb',
   (gltf) => {
@@ -99,6 +158,14 @@ modelLoader.load(
     mannequinRig.scene = gltf.scene;
     mannequinRig.skeleton = skinnedMesh.skeleton;
     mannequinRig.bones = new Map(mannequinRig.skeleton.bones.map((bone) => [bone.name, bone]));
+
+    rightArmRig.upperArm = mannequinRig.bones.get('upperarm_r');
+    rightArmRig.lowerArm = mannequinRig.bones.get('lowerarm_r');
+    if (!rightArmRig.upperArm || !rightArmRig.lowerArm) {
+      throw new Error('The loaded GLB is missing a required right arm bone.');
+    }
+    rightArmRig.baseUpperArmRotation = rightArmRig.upperArm.quaternion.clone();
+    rightArmRig.baseLowerArmRotation = rightArmRig.lowerArm.quaternion.clone();
 
     mannequinRig.scene.scale.setScalar(3.5);
     mannequinRig.scene.updateMatrixWorld(true);
@@ -122,6 +189,11 @@ modelLoader.load(
     console.table(bones);
     console.log('Access a bone with: window.poseEasyMannequin.getBone("upperarm_l")');
     console.groupEnd();
+    console.table([
+      { bone: 'upperarm_r', bindRotation: rightArmRig.baseUpperArmRotation.toArray() },
+      { bone: 'lowerarm_r', bindRotation: rightArmRig.baseLowerArmRotation.toArray() },
+    ]);
+    for (const control of Object.values(rightArmUi)) control.disabled = false;
     setModelStatus(`인체 모델 로드 완료 · ${bones.length} bones`);
   },
   (progress) => {
