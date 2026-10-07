@@ -115,7 +115,7 @@ function applyRightArmPose() {
   const liftAngle = THREE.MathUtils.degToRad(liftDegrees);
   const spreadAngle = THREE.MathUtils.degToRad(-Number(rightArmUi.spread.value));
   const twistAngle = THREE.MathUtils.degToRad(Number(rightArmUi.twist.value));
-  const elbowAngle = THREE.MathUtils.degToRad((Number(rightArmUi.elbow.value) / 100) * 135);
+  const elbowAngle = THREE.MathUtils.degToRad((Number(rightArmUi.elbow.value) / 100) * 150);
 
   const liftRotation = new THREE.Quaternion().setFromAxisAngle(localXAxis, liftAngle);
   const spreadRotation = new THREE.Quaternion().setFromAxisAngle(localZAxis, spreadAngle);
