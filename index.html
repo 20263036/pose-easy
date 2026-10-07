@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="그림 작업을 위한 3D 인체 포즈 도우미" />
+    <title>Pose Easy — 3D Mannequin</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="toolbar" aria-label="카메라 각도 선택">
+        <h1>Pose Easy</h1>
+        <div class="camera-controls" role="group" aria-label="카메라 구도">
+          <button type="button" data-view="front">정면</button>
+          <button type="button" data-view="side">측면</button>
+          <button type="button" data-view="back">후면</button>
+          <button type="button" data-view="high">하이앵글</button>
+          <button type="button" data-view="low">로우앵글</button>
+          <button type="button" class="reset-button" data-view="reset">카메라 초기화</button>
+        </div>
+      </header>
+
+      <section class="viewport" aria-label="3D 인체 마네킹 뷰포트">
+        <canvas id="scene-canvas"></canvas>
+        <p class="hint">드래그: 회전 · 휠: 확대/축소</p>
+      </section>
+    </main>
+
+    <!-- OrbitControls also imports the "three" module name internally. -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js"
+        }
+      }
+    </script>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
