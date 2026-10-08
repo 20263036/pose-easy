@@ -6,9 +6,8 @@
 }
 
 * { box-sizing: border-box; }
-html, body { height: 100%; }
-body { margin: 0; min-width: 320px; overflow: hidden; }
-.app-shell { height: 100dvh; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; }
+body { margin: 0; min-width: 320px; }
+.app-shell { min-height: 100vh; display: grid; grid-template-rows: auto 1fr; }
 .toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 20px; background: #1f2937; border-bottom: 1px solid #374151; }
 h1 { margin: 0 8px 0 0; font-size: 1.1rem; letter-spacing: .03em; white-space: nowrap; }
 .camera-controls { display: flex; flex-wrap: wrap; gap: 7px; margin-left: auto; }
@@ -33,30 +32,24 @@ button.active { background: #2563eb; border-color: #60a5fa; }
 .pose-status { color: #cbd5e1; font-size: .76rem; }
 .pose-status.error { color: #fca5a5; }
 
-.workspace { position: relative; min-height: 0; display: grid; grid-template-columns: minmax(260px, 30%) minmax(0, 1fr) minmax(272px, 320px); background: #111827; overflow: hidden; }
-.workspace.reference-collapsed { grid-template-columns: minmax(0, 1fr) minmax(272px, 320px); }
-.workspace.controls-collapsed { grid-template-columns: minmax(260px, 30%) minmax(0, 1fr); }
-.workspace.reference-collapsed.controls-collapsed { grid-template-columns: minmax(0, 1fr); }
-.workspace.reference-collapsed .reference-card { display: none; }
-.viewport { position: relative; min-width: 0; min-height: 0; overflow: hidden; border-left: 1px solid #374151; border-right: 1px solid #374151; }
+.workspace { min-height: 0; display: grid; grid-template-columns: minmax(285px, 36%) 1fr; background: #111827; }
+.viewport { position: relative; min-height: 0; overflow: hidden; border-left: 1px solid #374151; }
 #scene-canvas { display: block; width: 100%; height: 100%; touch-action: none; }
-.hint, .model-status { margin: 0; color: #cbd5e1; font-size: .76rem; pointer-events: none; }
+.hint, .model-status { position: absolute; margin: 0; color: #cbd5e1; font-size: .76rem; pointer-events: none; }
 .hint { left: 20px; bottom: 14px; }
-.hint { position: absolute; }
-.viewer-toolbar { position: absolute; z-index: 3; top: 12px; right: 14px; display: grid; justify-items: end; gap: 5px; }
-.viewer-toolbar button { padding: 5px 7px; font-size: .7rem; }
+.model-status { right: 20px; top: 14px; }
 .model-status.error { color: #fca5a5; }
 
-.reference-card { min-width: 0; min-height: 0; margin: 0; padding: 14px; background: #162033; color: #cbd5e1; overflow: auto; }
+.reference-card { min-width: 0; margin: 0; padding: 18px; background: #162033; color: #cbd5e1; overflow: auto; }
+.reference-card[hidden] + .viewport { grid-column: 1 / -1; border-left: 0; }
 .reference-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; font-size: .9rem; }
-.panel-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; }
-.reference-heading button, .panel-actions button, .panel-reveal { padding: 5px 7px; font-size: .7rem; }
+.reference-heading button { padding: 5px 7px; font-size: .7rem; }
 .reference-image-stage { position: relative; width: 100%; border: 1px solid #475569; border-radius: 8px; overflow: hidden; background: #0f172a; }
-.reference-card img { display: block; width: 100%; max-height: min(100%, calc(100dvh - 155px)); object-fit: contain; }
+.reference-card img { display: block; width: 100%; max-height: calc(100vh - 170px); object-fit: contain; }
 #reference-landmarks { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .reference-card p { margin: 10px 0 0; color: #94a3b8; font-size: .74rem; line-height: 1.4; }
 
-.pose-controls { min-width: 0; min-height: 0; height: 100%; padding: 14px; border-left: 1px solid #475569; background: rgb(15 23 42 / 94%); overflow-y: auto; overscroll-behavior: contain; }
+.pose-controls { position: absolute; z-index: 2; right: 20px; bottom: 14px; width: 272px; padding: 12px; border: 1px solid #475569; border-radius: 9px; background: rgb(15 23 42 / 94%); box-shadow: 0 8px 22px rgb(0 0 0 / 22%); }
 .pose-control-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 10px; font-size: .82rem; }
 .pose-control-heading strong { display: block; color: #cbd5e1; font-size: .68rem; font-weight: 600; }
 .pose-control-heading b { display: block; margin-top: 2px; color: #f8fafc; font-size: .93rem; }
@@ -73,34 +66,21 @@ button.active { background: #2563eb; border-color: #60a5fa; }
 .advanced-controls summary { padding: 8px 0 2px; cursor: pointer; color: #cbd5e1; font-size: .72rem; }
 .advanced-controls[open] summary { color: #93c5fd; }
 .advanced-controls label { margin: 8px 0; }
-.panel-reveal { position: absolute; z-index: 4; top: 12px; box-shadow: 0 5px 16px rgb(0 0 0 / 28%); }
-.reference-reveal { left: 14px; }
-.controls-reveal { right: 14px; top: 76px; }
 
 @media (max-width: 780px) {
   .toolbar { align-items: flex-start; padding: 12px 14px; }
   .camera-controls { width: 100%; margin-left: 0; }
   .image-upload input { width: 130px; }
-  .workspace { grid-template-columns: minmax(190px, 28%) minmax(0, 1fr) minmax(220px, 250px); }
-  .workspace.reference-collapsed { grid-template-columns: minmax(0, 1fr) minmax(220px, 250px); }
-  .workspace.controls-collapsed { grid-template-columns: minmax(190px, 28%) minmax(0, 1fr); }
-  .workspace.reference-collapsed.controls-collapsed { grid-template-columns: minmax(0, 1fr); }
+  .workspace { grid-template-columns: minmax(220px, 35%) 1fr; }
   .reference-card { padding: 12px; }
-  .pose-controls { padding: 12px; }
-  .hint { left: 12px; bottom: 10px; max-width: calc(100% - 24px); }
-  .panel-reveal { top: 12px; }
-  .reference-reveal { left: 12px; }
-  .controls-reveal { right: 12px; top: 72px; }
+  .pose-controls { right: 12px; bottom: 10px; width: 230px; }
+  .hint { left: 12px; bottom: 10px; max-width: calc(100% - 260px); }
+  .model-status { right: 12px; }
 }
 
 @media (max-width: 620px) {
-  .toolbar { gap: 8px; padding: 9px 10px; }
-  .pose-status { width: 100%; order: 3; }
-  .workspace { grid-template-columns: minmax(150px, 29%) minmax(0, 1fr) minmax(190px, 220px); }
-  .workspace.reference-collapsed { grid-template-columns: minmax(0, 1fr) minmax(190px, 220px); }
-  .workspace.controls-collapsed { grid-template-columns: minmax(150px, 29%) minmax(0, 1fr); }
-  .workspace.reference-collapsed.controls-collapsed { grid-template-columns: minmax(0, 1fr); }
-  .reference-card { padding: 9px; }
-  .reference-heading { align-items: flex-start; }
-  .pose-controls { padding: 9px; }
+  .workspace { display: block; overflow: auto; }
+  .reference-card { min-height: 250px; }
+  .reference-card img { max-height: 390px; }
+  .viewport { min-height: 580px; border-left: 0; border-top: 1px solid #374151; }
 }

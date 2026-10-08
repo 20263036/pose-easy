@@ -16,7 +16,6 @@
           <input id="pose-image-input" type="file" accept="image/*" />
         </label>
         <button id="extract-pose" type="button" disabled>이미지에서 포즈 추출</button>
-        <button id="new-pose" type="button">새 포즈 만들기</button>
         <span id="pose-status" class="pose-status" role="status">포즈 분석기를 준비하는 중…</span>
         <div class="camera-controls" role="group" aria-label="카메라 구도">
           <button type="button" data-view="front">정면</button>
@@ -47,50 +46,47 @@
         <section class="viewport" aria-label="3D 인체 마네킹 뷰포트">
           <canvas id="scene-canvas"></canvas>
           <p class="hint">빈 곳 드래그: 시점 회전 · 휠: 확대/축소 · 관절 클릭: 보정</p>
-          <div class="viewer-toolbar">
-            <button id="marker-toggle" type="button" aria-pressed="true">관절 표시: 켜짐</button>
-            <p id="model-status" class="model-status" role="status">3D 인체 모델을 불러오는 중…</p>
-          </div>
-        </section>
+          <p id="model-status" class="model-status" role="status">3D 인체 모델을 불러오는 중…</p>
 
-        <aside class="pose-controls" aria-label="선택한 관절 조정">
-          <div class="pose-control-heading">
-            <div>
-              <strong>선택한 관절</strong>
-              <b id="selected-joint-name">관절을 선택하세요</b>
+          <aside class="pose-controls" aria-label="선택한 관절 조정">
+            <div class="pose-control-heading">
+              <div>
+                <strong>선택한 관절</strong>
+                <b id="selected-joint-name">관절을 선택하세요</b>
+              </div>
+              <div class="panel-actions">
+                <button id="reset-joint" type="button" disabled>자동 포즈로</button>
+                <button id="hide-controls" type="button">조작 도구 숨기기</button>
+              </div>
             </div>
-            <div class="panel-actions">
-              <button id="reset-joint" type="button" disabled>자동 포즈로</button>
-              <button id="hide-controls" type="button">조작 도구 숨기기</button>
+            <label>관절
+              <select id="joint-select" disabled></select>
+            </label>
+            <div id="simple-controls" class="simple-controls" aria-label="간단 조정">
+              <p class="control-note">방향 보정은 사진과 비교하며 조금씩 조절하세요.</p>
+              <label><span id="primary-x-label">방향 보정</span> <output id="primary-x-value">0°</output>
+                <input id="primary-x" type="range" min="-75" max="75" value="0" disabled />
+              </label>
+              <label><span id="primary-y-label">보조 방향</span> <output id="primary-y-value">0°</output>
+                <input id="primary-y" type="range" min="-75" max="75" value="0" disabled />
+              </label>
             </div>
-          </div>
-          <label>관절
-            <select id="joint-select" disabled></select>
-          </label>
-          <div id="simple-controls" class="simple-controls" aria-label="간단 조정">
-            <p class="control-note">방향 보정은 사진과 비교하며 조금씩 조절하세요.</p>
-            <label><span id="primary-x-label">방향 보정</span> <output id="primary-x-value">0°</output>
-              <input id="primary-x" type="range" min="-75" max="75" value="0" disabled />
-            </label>
-            <label><span id="primary-y-label">보조 방향</span> <output id="primary-y-value">0°</output>
-              <input id="primary-y" type="range" min="-75" max="75" value="0" disabled />
-            </label>
-          </div>
-          <details class="advanced-controls">
-            <summary>고급 조정 (정확한 회전축)</summary>
-            <label>X 회전 <output id="rotation-x-value">0°</output>
-              <input id="rotation-x" type="range" min="-90" max="90" value="0" disabled />
-            </label>
-            <label>Y 회전 <output id="rotation-y-value">0°</output>
-              <input id="rotation-y" type="range" min="-90" max="90" value="0" disabled />
-            </label>
-            <label>Z 회전 <output id="rotation-z-value">0°</output>
-              <input id="rotation-z" type="range" min="-120" max="120" value="0" disabled />
-            </label>
-          </details>
-          <button id="reset-pose" type="button" disabled>전체 포즈 초기화</button>
-          <p>자동 생성 결과는 유지됩니다. Ctrl+Z로 마지막 보정을 취소할 수 있습니다.</p>
-        </aside>
+            <details class="advanced-controls">
+              <summary>고급 조정 (정확한 회전축)</summary>
+              <label>X 회전 <output id="rotation-x-value">0°</output>
+                <input id="rotation-x" type="range" min="-90" max="90" value="0" disabled />
+              </label>
+              <label>Y 회전 <output id="rotation-y-value">0°</output>
+                <input id="rotation-y" type="range" min="-90" max="90" value="0" disabled />
+              </label>
+              <label>Z 회전 <output id="rotation-z-value">0°</output>
+                <input id="rotation-z" type="range" min="-120" max="120" value="0" disabled />
+              </label>
+            </details>
+            <button id="reset-pose" type="button" disabled>전체 포즈 초기화</button>
+            <p>자동 생성 결과는 유지됩니다. Ctrl+Z로 마지막 보정을 취소할 수 있습니다.</p>
+          </aside>
+        </section>
         <button id="show-reference" class="panel-reveal reference-reveal" type="button" hidden>사진 보기</button>
         <button id="show-controls" class="panel-reveal controls-reveal" type="button" hidden>조작 도구 보기</button>
       </section>

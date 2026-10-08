@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="그림 작업을 위한 3D 인체 포즈 도우미" />
+    <title>Pose Easy — 3D Mannequin</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="toolbar" aria-label="Pose Easy 도구">
+        <h1>Pose Easy</h1>
+        <label class="image-upload" for="pose-image-input">
+          <span>참고 이미지</span>
+          <input id="pose-image-input" type="file" accept="image/*" />
+        </label>
+        <button id="extract-pose" type="button" disabled>이미지에서 포즈 추출</button>
+        <span id="pose-status" class="pose-status" role="status">포즈 분석기를 준비하는 중…</span>
+        <div class="camera-controls" role="group" aria-label="카메라 구도">
+          <button type="button" data-view="front">정면</button>
+          <button type="button" data-view="side">측면</button>
+          <button type="button" data-view="back">후면</button>
+          <button type="button" data-view="high">하이앵글</button>
+          <button type="button" data-view="low">로우앵글</button>
+          <button type="button" class="reset-button" data-view="reset">카메라 초기화</button>
+        </div>
+      </header>
+
+      <section class="viewport" aria-label="3D 인체 마네킹 뷰포트">
+        <canvas id="scene-canvas"></canvas>
+        <p class="hint">드래그: 시점 회전 · 휠: 확대/축소 · 오른쪽 드래그: 화면 이동 · 관절 클릭: 미세 조정</p>
+        <p id="model-status" class="model-status" role="status">3D 인체 모델을 불러오는 중…</p>
+
+        <aside id="reference-card" class="reference-card" hidden aria-label="선택한 참고 이미지">
+          <img id="reference-preview" alt="포즈 추출에 사용할 참고 이미지" />
+          <span>참고 이미지</span>
+        </aside>
+
+        <aside class="pose-controls" aria-label="선택한 관절 조정">
+          <div class="pose-control-heading">
+            <strong>관절 미세 조정</strong>
+            <button id="reset-joint" type="button" disabled>관절 초기화</button>
+          </div>
+          <label>관절
+            <select id="joint-select" disabled></select>
+          </label>
+          <label>앞/뒤 <output id="rotation-x-value">0°</output>
+            <input id="rotation-x" type="range" min="-90" max="90" value="0" disabled />
+          </label>
+          <label>좌/우 <output id="rotation-y-value">0°</output>
+            <input id="rotation-y" type="range" min="-90" max="90" value="0" disabled />
+          </label>
+          <label>비틀기 <output id="rotation-z-value">0°</output>
+            <input id="rotation-z" type="range" min="-120" max="120" value="0" disabled />
+          </label>
+          <button id="reset-pose" type="button" disabled>전체 포즈 초기화</button>
+          <p>자동 추출 뒤에도 여기서 관절을 직접 보정할 수 있습니다.</p>
+        </aside>
+      </section>
+    </main>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.1/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.1/examples/jsm/"
+        }
+      }
+    </script>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

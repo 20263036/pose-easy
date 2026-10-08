@@ -11,7 +11,6 @@ const markerToggle = $('#marker-toggle');
 const poseStatus = $('#pose-status');
 const imageInput = $('#pose-image-input');
 const extractButton = $('#extract-pose');
-const newPoseButton = $('#new-pose');
 const workspace = $('.workspace');
 const referenceCard = $('#reference-card');
 const referencePreview = $('#reference-preview');
@@ -114,249 +113,6 @@ let manualEditActive = false;
 const undoStack = [];
 const MAX_UNDO = 40;
 
-// Small, JSON-safe editing state belongs in localStorage. The reference photo
-// itself is intentionally kept out of it: IndexedDB stores the Blob without
-// turning a potentially large image into an even larger base64 string.
-const WORK_STATE_KEY = 'pose-easy-work-v1';
-const WORK_DB_NAME = 'pose-easy-work';
-const WORK_DB_STORE = 'reference-images';
-const WORK_IMAGE_ID = 'active-reference';
-let persistenceReady = false;
-let restoringWork = false;
-let restoredWork = false;
-let saveTimer = null;
-let pendingSavedWork = null;
-let workImageMetadata = null;
-let imageSaveVersion = 0;
-
-function readSavedWork() {
-  try {
-    const raw = localStorage.getItem(WORK_STATE_KEY);
-    if (!raw) return null;
-    const state = JSON.parse(raw);
-    return state && state.version === 1 ? state : null;
-  } catch (error) {
-    console.warn('Pose Easy saved work could not be read.', error);
-    return null;
-  }
-}
-function openWorkDatabase() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(WORK_DB_NAME, 1);
-    request.onupgradeneeded = () => {
-      if (!request.result.objectStoreNames.contains(WORK_DB_STORE)) {
-        request.result.createObjectStore(WORK_DB_STORE, { keyPath: 'id' });
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error || new Error('IndexedDB를 열 수 없습니다.'));
-  });
-}
-async function writeReferenceImage(file, version) {
-  const database = await openWorkDatabase();
-  await new Promise((resolve, reject) => {
-    const transaction = database.transaction(WORK_DB_STORE, 'readwrite');
-    transaction.objectStore(WORK_DB_STORE).put({ id: WORK_IMAGE_ID, version, blob: file });
-    transaction.oncomplete = resolve;
-    transaction.onerror = () => reject(transaction.error || new Error('사진 저장에 실패했습니다.'));
-    transaction.onabort = () => reject(transaction.error || new Error('사진 저장이 취소되었습니다.'));
-  });
-  database.close();
-}
-async function readReferenceImage() {
-  const database = await openWorkDatabase();
-  const record = await new Promise((resolve, reject) => {
-    const transaction = database.transaction(WORK_DB_STORE, 'readonly');
-    const request = transaction.objectStore(WORK_DB_STORE).get(WORK_IMAGE_ID);
-    request.onsuccess = () => resolve(request.result || null);
-    request.onerror = () => reject(request.error || new Error('저장된 사진을 읽을 수 없습니다.'));
-  });
-  database.close();
-  return record;
-}
-async function deleteReferenceImage() {
-  const database = await openWorkDatabase();
-  await new Promise((resolve, reject) => {
-    const transaction = database.transaction(WORK_DB_STORE, 'readwrite');
-    transaction.objectStore(WORK_DB_STORE).delete(WORK_IMAGE_ID);
-    transaction.oncomplete = resolve;
-    transaction.onerror = () => reject(transaction.error || new Error('저장된 사진을 지울 수 없습니다.'));
-  });
-  database.close();
-}
-function serialiseAutomaticRotations() {
-  return Object.fromEntries(editable.map((name) => {
-    const rotation = automatic.get(name);
-    return [name, rotation ? rotation.toArray() : null];
-  }));
-}
-function serialiseLandmarks() {
-  return lastImageLandmarks && lastImageLandmarks.map(({ x, y, z, visibility, presence }) => ({ x, y, z, visibility, presence }));
-}
-function makeWorkSnapshot() {
-  if (!rig.scene) return null;
-  return {
-    version: 1,
-    savedAt: Date.now(),
-    automatic: serialiseAutomaticRotations(),
-    offsets: snapshotOffsets(),
-    selectedBone,
-    camera: { position: camera.position.toArray(), target: controls.target.toArray() },
-    panels: { referenceCollapsed, controlsCollapsed },
-    markers: { model: show3DMarkers, reference: showLandmarks },
-    landmarks: serialiseLandmarks(),
-    photo: workImageMetadata,
-  };
-}
-function saveWorkNow() {
-  if (!persistenceReady || restoringWork || pendingSavedWork) return;
-  const snapshot = makeWorkSnapshot();
-  if (!snapshot) return;
-  try {
-    localStorage.setItem(WORK_STATE_KEY, JSON.stringify(snapshot));
-  } catch (error) {
-    console.error('Pose Easy work state could not be saved.', error);
-    setPoseStatus('작업 상태를 저장하지 못했습니다. 브라우저 저장 공간을 확인하세요.', true);
-  }
-}
-function scheduleSave() {
-  if (!persistenceReady || restoringWork || pendingSavedWork) return;
-  window.clearTimeout(saveTimer);
-  saveTimer = window.setTimeout(saveWorkNow, 350);
-}
-async function saveSelectedImage(file) {
-  const version = ++imageSaveVersion;
-  try {
-    await writeReferenceImage(file, version);
-    if (version !== imageSaveVersion) return;
-    workImageMetadata = { version, name: file.name, type: file.type, size: file.size };
-    scheduleSave();
-  } catch (error) {
-    if (version !== imageSaveVersion) return;
-    workImageMetadata = null;
-    console.error('Pose Easy reference image could not be saved.', error);
-    setPoseStatus('사진은 저장하지 못했습니다. 포즈 설정만 복원될 수 있습니다.', true);
-    scheduleSave();
-  }
-}
-async function restoreReferenceImage(photo) {
-  if (!photo) return;
-  try {
-    const record = await readReferenceImage();
-    if (!record || !record.blob || record.version !== photo.version) {
-      throw new Error('저장된 사진 데이터가 없습니다.');
-    }
-    const image = new Image();
-    const objectUrl = URL.createObjectURL(record.blob);
-    await new Promise((resolve, reject) => {
-      image.onload = resolve;
-      image.onerror = reject;
-      image.src = objectUrl;
-    });
-    if (selectedImageUrl) URL.revokeObjectURL(selectedImageUrl);
-    selectedImage = image;
-    selectedImageUrl = objectUrl;
-    referencePreview.src = objectUrl;
-    referenceCard.hidden = false;
-    referenceCaption.textContent = lastImageLandmarks
-      ? '노란 점과 청록 선은 사진에서 인식한 주요 관절입니다.'
-      : '복원된 참고 이미지입니다. 필요하면 다시 포즈를 추출하세요.';
-    updatePanelLayout();
-    drawReferenceLandmarks();
-  } catch (error) {
-    console.error('Pose Easy reference image could not be restored.', error);
-    setPoseStatus('포즈는 복원했지만 저장된 참고 사진을 읽을 수 없습니다.', true);
-  }
-}
-async function restoreSavedWork() {
-  const state = pendingSavedWork;
-  if (!state || !rig.scene) return false;
-  restoringWork = true;
-  try {
-    Object.entries(state.automatic || {}).forEach(([name, value]) => {
-      if (!editable.includes(name) || !Array.isArray(value) || value.length !== 4 || !value.every(Number.isFinite)) return;
-      automatic.set(name, new THREE.Quaternion(value[0], value[1], value[2], value[3]).normalize());
-    });
-    restoreOffsets(state.offsets || {});
-    lastImageLandmarks = Array.isArray(state.landmarks) ? state.landmarks : null;
-    workImageMetadata = state.photo || null;
-    referenceCollapsed = Boolean(state.panels && state.panels.referenceCollapsed);
-    controlsCollapsed = Boolean(state.panels && state.panels.controlsCollapsed);
-    showLandmarks = !state.markers || state.markers.reference !== false;
-    landmarkToggle.textContent = '관절 표시: ' + (showLandmarks ? '켜짐' : '꺼짐');
-    landmarkToggle.setAttribute('aria-pressed', String(showLandmarks));
-    set3DMarkerVisibility(!state.markers || state.markers.model !== false);
-    if (state.camera && Array.isArray(state.camera.position) && Array.isArray(state.camera.target)) {
-      camera.position.fromArray(state.camera.position);
-      controls.target.fromArray(state.camera.target);
-      camera.updateProjectionMatrix();
-      controls.update();
-    }
-    updatePanelLayout();
-    selectBone(editable.includes(state.selectedBone) ? state.selectedBone : 'upperarm_r');
-    undoStack.length = 0;
-    await restoreReferenceImage(state.photo);
-    restoredWork = true;
-    setPoseStatus('마지막 작업을 복원했습니다. 계속 보정할 수 있습니다.');
-    return true;
-  } catch (error) {
-    console.error('Pose Easy work state could not be restored.', error);
-    setPoseStatus('저장된 작업을 완전히 복원하지 못했습니다. 기본 포즈로 시작합니다.', true);
-    return false;
-  } finally {
-    pendingSavedWork = null;
-    restoringWork = false;
-    persistenceReady = true;
-    scheduleSave();
-  }
-}
-async function clearSavedWork() {
-  window.clearTimeout(saveTimer);
-  try {
-    localStorage.removeItem(WORK_STATE_KEY);
-  } catch (error) {
-    console.warn('Pose Easy work state could not be cleared.', error);
-  }
-  try {
-    await deleteReferenceImage();
-  } catch (error) {
-    console.warn('Pose Easy saved reference image could not be cleared.', error);
-    setPoseStatus('이전 사진 저장본을 정리하지 못했습니다. 브라우저 저장 공간을 확인하세요.', true);
-  }
-}
-function startNewPose() {
-  restoringWork = true;
-  pendingSavedWork = null;
-  moveAnimation = null;
-  resetPose(false);
-  undoStack.length = 0;
-  if (selectedImageUrl) URL.revokeObjectURL(selectedImageUrl);
-  selectedImage = null;
-  selectedImageUrl = null;
-  imageInput.value = '';
-  referencePreview.removeAttribute('src');
-  referenceCard.hidden = true;
-  lastImageLandmarks = null;
-  workImageMetadata = null;
-  imageSaveVersion += 1;
-  referenceCollapsed = false;
-  controlsCollapsed = false;
-  showLandmarks = true;
-  landmarkToggle.textContent = '관절 표시: 켜짐';
-  landmarkToggle.setAttribute('aria-pressed', 'true');
-  set3DMarkerVisibility(true);
-  camera.position.copy(initialView.position);
-  controls.target.copy(initialView.target);
-  controls.update();
-  selectBone('upperarm_r');
-  updatePanelLayout();
-  restoringWork = false;
-  restoredWork = false;
-  persistenceReady = false;
-  setPoseStatus('새 참고 이미지를 선택해 포즈 만들기를 시작하세요.');
-}
-pendingSavedWork = readSavedWork();
-
 window.poseEasyMannequin = { get scene() { return rig.scene; }, get skeleton() { return rig.skeleton; }, getBone(name) { return rig.bones.get(name) || null; } };
 function setModelStatus(message, error = false) { modelStatus.textContent = message; modelStatus.classList.toggle('error', error); }
 function setPoseStatus(message, error = false) { poseStatus.textContent = message; poseStatus.classList.toggle('error', error); }
@@ -365,7 +121,6 @@ function set3DMarkerVisibility(visible) {
   markerToggle.textContent = '관절 표시: ' + (visible ? '켜짐' : '꺼짐');
   markerToggle.setAttribute('aria-pressed', String(visible));
   updateProxyStyles();
-  scheduleSave();
 }
 function updatePanelLayout() {
   const canShowReference = !referenceCard.hidden;
@@ -383,7 +138,6 @@ function updatePanelLayout() {
     resizeRenderer();
     if (canShowReference && !referenceCollapsed) drawReferenceLandmarks();
   });
-  scheduleSave();
 }
 hideReferenceButton.addEventListener('click', () => {
   referenceCollapsed = true;
@@ -424,7 +178,6 @@ function applyPose() {
   // "forward" keep their meaning after MediaPipe has rotated the arm.
   ['upperarm_l', 'upperarm_r'].forEach(applyShoulderSemanticOffset);
   rig.scene.updateMatrixWorld(true);
-  scheduleSave();
 }
 function snapshotOffsets() {
   const euler = Object.fromEntries(editable.map((name) => {
@@ -519,7 +272,6 @@ function selectBone(name) {
   selectedJointName.textContent = name ? labels[name] : '관절을 선택하세요';
   updateProxyStyles();
   refreshSliders();
-  scheduleSave();
 }
 function setControlsEnabled(enabled) {
   jointSelect.disabled = !enabled;
@@ -843,7 +595,6 @@ landmarkToggle.addEventListener('click', () => {
   landmarkToggle.textContent = '관절 표시: ' + (showLandmarks ? '켜짐' : '꺼짐');
   landmarkToggle.setAttribute('aria-pressed', String(showLandmarks));
   drawReferenceLandmarks();
-  scheduleSave();
 });
 referencePreview.addEventListener('load', drawReferenceLandmarks);
 new ResizeObserver(drawReferenceLandmarks).observe(referenceLandmarks.parentElement);
@@ -1011,11 +762,7 @@ async function initialisePoseLandmarker() {
       numPoses: 1,
     });
     extractButton.disabled = !selectedImage;
-    // Do not replace the restored-work message after the asynchronous
-    // MediaPipe runtime finishes loading.
-    if (!selectedImage && !pendingSavedWork && !restoringWork && !restoredWork) {
-      setPoseStatus('참고 이미지를 선택하면 포즈를 추출할 수 있습니다.');
-    }
+    setPoseStatus('참고 이미지를 선택하면 포즈를 추출할 수 있습니다.');
   } catch (error) {
     console.error('Pose Landmarker initialisation failed.', error);
     setPoseStatus('포즈 분석기를 불러오지 못했습니다. 인터넷 연결을 확인하세요.', true);
@@ -1024,10 +771,6 @@ async function initialisePoseLandmarker() {
 imageInput.addEventListener('change', () => {
   const file = imageInput.files && imageInput.files[0];
   if (!file) return;
-  // A new upload starts (or continues) a user work session. The Blob write is
-  // asynchronous, while the pose editor remains immediately usable.
-  persistenceReady = true;
-  saveSelectedImage(file);
   if (selectedImageUrl) URL.revokeObjectURL(selectedImageUrl);
   selectedImage = new Image();
   selectedImageUrl = URL.createObjectURL(file);
@@ -1040,7 +783,6 @@ imageInput.addEventListener('change', () => {
     drawReferenceLandmarks();
     extractButton.disabled = !poseLandmarker;
     setPoseStatus('이미지를 불러왔습니다. “이미지에서 포즈 추출”을 누르세요.');
-    scheduleSave();
   };
   selectedImage.onerror = () => setPoseStatus('이미지를 읽을 수 없습니다.', true);
   selectedImage.src = selectedImageUrl;
@@ -1071,19 +813,12 @@ extractButton.addEventListener('click', () => {
       }));
     }
     setPoseStatus('포즈를 적용했습니다. 관절을 클릭하거나 오른쪽 패널에서 보정하세요.');
-    scheduleSave();
   } catch (error) {
     console.error('Pose extraction failed.', error);
     setPoseStatus(error.message || '포즈를 적용하지 못했습니다.', true);
   } finally {
     extractButton.disabled = false;
   }
-});
-newPoseButton.addEventListener('click', async () => {
-  const hasSavedOrActiveWork = Boolean(selectedImage || localStorage.getItem(WORK_STATE_KEY));
-  if (hasSavedOrActiveWork && !window.confirm('현재 사진과 포즈 보정이 지워집니다. 새 포즈를 시작할까요?')) return;
-  await clearSavedWork();
-  startNewPose();
 });
 
 new GLTFLoader().load('./assets/models/human-base-rigged.glb', (gltf) => {
@@ -1132,13 +867,6 @@ new GLTFLoader().load('./assets/models/human-base-rigged.glb', (gltf) => {
     const label = previewPose === 't' ? 'T자' : previewPose === 'asymmetric' ? '비대칭' : '카메라 방향 무릎 상승';
     setPoseStatus('검증용 ' + label + ' 포즈를 표시하고 있습니다.');
   }
-  if (pendingSavedWork) {
-    void restoreSavedWork();
-  } else {
-    // Do not save the validation fixture or the initial bind pose. From this
-    // point onward, real user changes are debounced and persisted.
-    persistenceReady = true;
-  }
 }, (progress) => {
   if (progress.total > 0) setModelStatus('3D 인체 모델을 불러오는 중… ' + Math.round((progress.loaded / progress.total) * 100) + '%');
 }, (error) => {
@@ -1176,8 +904,6 @@ $('.camera-controls').addEventListener('click', (event) => {
   const button = event.target.closest('button[data-view]');
   if (button) moveCamera(button.dataset.view);
 });
-controls.addEventListener('change', scheduleSave);
-window.addEventListener('pagehide', saveWorkNow);
 function render(now) {
   requestAnimationFrame(render);
   if (moveAnimation) moveAnimation(now);
